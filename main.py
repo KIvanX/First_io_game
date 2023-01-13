@@ -1,17 +1,16 @@
-import threading
-
 from flask import Flask, render_template, request, session
+import threading
+import random
 import json
 import time
 import math
-import random
 
 app = Flask(__name__)
 app.secret_key = '123456'
 heros = {}
 food = {}
 colors = ['red', 'green', 'blue', 'yellow', 'violet']
-WIDTH, HEIGHT = 3000, 2000
+WIDTH, HEIGHT = 3500, 2000
 
 
 @app.route("/", methods=['POST', 'GET'])
@@ -21,19 +20,25 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/set_name")
+def set_name():
+    session['player_name'] = request.args.get('name')
+    heros[session['player_id']]['name'] = session['player_name']
+
+
 @app.route("/init")
 def init():
     session['player_id'] = round(random.random(), 10)
     chunk_id, x, y = round(random.random(), 10), random.randint(0, WIDTH), random.randint(0, HEIGHT)
-    heros[session['player_id']] = {'chunks': {chunk_id: {'x': x, 'y': y, 'score': 150}},
+    heros[session['player_id']] = {'chunks': {chunk_id: {'x': x, 'y': y, 'score': 100}},
                                    'camera_x': x,
                                    'camera_y': y,
+                                   'camera_width': int(request.args.get('width')),
+                                   'camera_height': int(request.args.get('height')),
                                    'color': random.choice(colors),
                                    'last_update': time.time(),
-                                   'window_width': request.args.get('width'),
-                                   'window_height': request.args.get('height'),
-                                   'name': request.args.get('name')}
-    return {'self_id': session['player_id']}
+                                   'name': session.get('player_name', '')}
+    return {'self_id': session['player_id'], 'saved_name': session.get('player_name', '')}
 
 
 @app.route("/update")
@@ -41,15 +46,26 @@ def update():
     if 'player_id' not in session or session['player_id'] not in heros or not heros[session['player_id']]['chunks']:
         return {'status': 'reload'}
 
-    heros[session['player_id']]['last_update'] = time.time()
-
+    tick()
     separation()
     move()
     vis_food = get_visible_food()
     food_collision(vis_food)
     heros_collision()
 
-    return json.dumps({'heros': heros, 'food': vis_food, 'status': 'OK'})
+    return json.dumps({'heros': heros,
+                       'food': vis_food,
+                       'window_k': heros[session['player_id']]['camera_k'],
+                       'status': 'OK'})
+
+
+def tick():
+    heros[session['player_id']]['last_update'] = time.time()
+    for chunk in heros[session['player_id']]['chunks'].values():
+        chunk['score'] -= 0.01
+
+    k = 1 - sum([c['score']**2 for c in heros[session['player_id']]['chunks'].values()])**0.5 / 6000
+    heros[session['player_id']]['camera_k'] = k
 
 
 def separation():
@@ -80,8 +96,8 @@ def move():
         elif 'energy' in chunk:
             chunk.pop('energy')
 
-        chunk['x'] -= math.cos(math.radians(ang)) * (1500 / chunk['score']) * scale
-        chunk['y'] -= math.sin(math.radians(ang)) * (1500 / chunk['score']) * scale
+        chunk['x'] -= math.cos(math.radians(ang)) * (800 / chunk['score']**0.8) * scale
+        chunk['y'] -= math.sin(math.radians(ang)) * (800 / chunk['score']**0.8) * scale
         chunk['x'] = 0 if chunk['x'] < 0 else WIDTH if chunk['x'] > WIDTH else chunk['x']
         chunk['y'] = 0 if chunk['y'] < 0 else HEIGHT if chunk['y'] > HEIGHT else chunk['y']
         cr_x, cr_y = cr_x + chunk['x'], cr_y + chunk['y']
@@ -119,7 +135,8 @@ def self_collisions():
 
 
 def get_visible_food():
-    w, h = int(heros[session['player_id']]['window_width']) / 2, int(heros[session['player_id']]['window_height']) / 2
+    w = heros[session['player_id']]['camera_width'] / 2 / heros[session['player_id']]['camera_k']
+    h = heros[session['player_id']]['camera_height'] / 2 / heros[session['player_id']]['camera_k']
     center_x, center_y = heros[session['player_id']]['camera_x'], heros[session['player_id']]['camera_y']
     visible_food = {}
     for f_key, f in food.items():
@@ -136,7 +153,7 @@ def food_collision(vis_food):
             for chunk in heros[session['player_id']]['chunks'].values():
                 if (chunk['x'] - f['x']) ** 2 + (chunk['y'] - f['y']) ** 2 < chunk['score'] ** 2:
                     food_to_del.add(f_key)
-                    chunk['score'] = (chunk['score']**2 + 20)**0.5
+                    chunk['score'] = (chunk['score']**2 + 10)**0.5
 
         for key in food_to_del:
             food.pop(key)
@@ -180,4 +197,4 @@ def updater():
 
 if __name__ == "__main__":
     threading.Thread(target=updater, daemon=True).start()
-    app.run(host='0.0.0.0', pord=5004)
+    app.run(host='0.0.0.0', port=5004)

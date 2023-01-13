@@ -13,7 +13,7 @@
             position: absolute;
             left: -10px;
             top: -10px;
-            width: 3010px;
+            width: 3510px;
             height: 2010px;
             border: 3px solid #ffe5cc;
         }
@@ -50,7 +50,7 @@
 </body>
 
 <script>
-    let mouse_x = 0, mouse_y = 0, self_id, update_interval, name, is_jump;
+    let mouse_x = 0, mouse_y = 0, self_id, update_interval, name, is_jump, win_k;
     let hero_layout = document.getElementById('hero_layout');
     let food_layout = document.getElementById('food_layout');
     let camera = document.getElementById('camera');
@@ -59,19 +59,22 @@
 
     function init() {
         document.addEventListener('mousemove', function (e) {
-            mouse_x = e.pageX;
-            mouse_y = e.pageY;
+            mouse_x = Math.round(e.pageX);
+            mouse_y = Math.round(e.pageY);
         });
 
-        document.addEventListener('keydown', function(event) { if (event.key == ' ') is_jump = true });
-
-        name = prompt('Введи свой ник');
+        document.addEventListener('keydown', function(e) { if (e.key == ' ') is_jump = true });
 
         $.ajax({
             url: '{{ url_for("init") }}', method: 'get', dataType: 'html',
             data: {'width': window.outerWidth, 'height': window.outerHeight, 'name': name},
             success: function (data) {
                 self_id = JSON.parse(data)['self_id'];
+                let saved_name = JSON.parse(data)['saved_name'];
+                if (saved_name == '') {
+                    name = prompt('KIVAN_server приветствует на сайте test.io!\nВведите свой ник:');
+                    $.ajax({url: '{{ url_for("set_name") }}', dataType: 'html', data: {'name': name}});
+                }
                 update_interval = setInterval(update, 100);
             }
         })
@@ -83,29 +86,29 @@
             url: '{{ url_for("update") }}',
             method: 'get',
             dataType: 'html',
-            data: {'mouse_x': parseInt(camera.style.right) - window.outerWidth + mouse_x/document.body.style.zoom,
-                   'mouse_y': parseInt(camera.style.bottom) - window.outerHeight + mouse_y/document.body.style.zoom,
+            data: {'mouse_x': parseInt(camera.style.right) - window.outerWidth / win_k + mouse_x/document.body.style.zoom,
+                   'mouse_y': parseInt(camera.style.bottom) - window.outerHeight / win_k + mouse_y/document.body.style.zoom,
                    'is_jump': is_jump},
             success: function (data) {
-                is_jump = false;
                 let info = JSON.parse(data);
                 if (info['status'] == 'reload') {
                     clearInterval(update_interval);
                     location.reload();
                 }
+                win_k = info['window_k'];
                 update_food(info['food']);
                 update_chunks(info['heros']);
-                camera.style.bottom = info['heros'][self_id]['camera_y'] + window.outerHeight / 2 + 'px';
-                camera.style.right = info['heros'][self_id]['camera_x'] + window.outerWidth / 2 + 'px';
-                if (document.body.style.zoom != (window.innerWidth / window.outerWidth))
-                    document.body.style.zoom = (window.innerWidth / window.outerWidth);
+                camera.style.bottom = info['heros'][self_id]['camera_y'] + window.outerHeight / 2 / win_k + 'px';
+                camera.style.right = info['heros'][self_id]['camera_x'] + window.outerWidth / 2 / win_k + 'px';
+                document.body.style.zoom = (window.innerWidth / window.outerWidth) * win_k;
 
             },
             error: function(_, __, ___) {
                 clearInterval(update_interval);
                 location.reload();
             }
-        })
+        });
+        is_jump = false;
     }
 
     function update_food(new_food) {
