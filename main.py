@@ -161,7 +161,7 @@ def heros_collision():
 
 def updater():
     while True:
-        if len(food) < 2000:
+        if len(food) < 1000:
             for _ in range(30):
                 food[round(random.random(), 10)] = ({'x': random.randint(0, WIDTH),
                                                      'y': random.randint(0, HEIGHT),
