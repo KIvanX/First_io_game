@@ -23,15 +23,16 @@ def index():
 
 @app.route("/set_name")
 def set_name():
-    session['player_name'] = request.args.get('name')
-    heros[session['player_id']]['name'] = session['player_name']
+    if session.get('player_id', 0) in heros:
+        session['player_name'] = request.args.get('name')
+        heros[session['player_id']]['name'] = session['player_name']
 
 
 @app.route("/init")
 def init():
     session['player_id'] = round(random.random(), 10)
     chunk_id, x, y = round(random.random(), 10), random.randint(0, WIDTH), random.randint(0, HEIGHT)
-    heros[session['player_id']] = {'chunks': {chunk_id: {'x': x, 'y': y, 'score': 100}},
+    heros[session['player_id']] = {'chunks': {chunk_id: {'x': x, 'y': y, 'score': 25}},
                                    'camera_x': x,
                                    'camera_y': y,
                                    'camera_width': int(request.args.get('width')),
@@ -169,7 +170,7 @@ def heros_collision():
             for k2, c2 in hero['chunks'].items():
                 ready = 'time' not in c1 and 'time' not in c2
                 if (key != session['player_id'] or ready) and c1['score'] > c2['score']:
-                    if (c1['x'] - c2['x']) ** 2 + (c1['y'] - c2['y']) ** 2 < (c1['score'] / 2 + c2['score'] / 4) ** 2:
+                    if (c1['x'] - c2['x']) ** 2 + (c1['y'] - c2['y']) ** 2 < (c1['score'] + c2['score'] / 8) ** 2:
                         chunks_to_del.add((key, k2))
                         c1['score'] = (c1['score']**2 + c2['score']**2)**0.5
 
