@@ -59,8 +59,8 @@
 
     function init() {
         document.addEventListener('mousemove', function (e) {
-            mouse_x = Math.round(e.pageX);
-            mouse_y = Math.round(e.pageY);
+            mouse_x = e.pageX;
+            mouse_y = e.pageY;
         });
 
         document.addEventListener('keydown', function(e) { if (e.key == ' ') is_jump = true });
@@ -86,8 +86,8 @@
             url: '{{ url_for("update") }}',
             method: 'get',
             dataType: 'html',
-            data: {'mouse_x': parseInt(camera.style.right) - window.outerWidth / win_k + mouse_x/document.body.style.zoom,
-                   'mouse_y': parseInt(camera.style.bottom) - window.outerHeight / win_k + mouse_y/document.body.style.zoom,
+            data: {'mouse_x': Math.round(parseInt(camera.style.right) - window.outerWidth / win_k + mouse_x/document.body.style.zoom),
+                   'mouse_y': Math.round(parseInt(camera.style.bottom) - window.outerHeight / win_k + mouse_y/document.body.style.zoom),
                    'is_jump': is_jump},
             success: function (data) {
                 let info = JSON.parse(data);

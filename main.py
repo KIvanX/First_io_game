@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, session
 import threading
+import logging
 import random
 import json
 import time
@@ -46,12 +47,18 @@ def update():
     if 'player_id' not in session or session['player_id'] not in heros or not heros[session['player_id']]['chunks']:
         return {'status': 'reload'}
 
-    tick()
-    separation()
-    move()
-    vis_food = get_visible_food()
-    food_collision(vis_food)
-    heros_collision()
+    vis_food = []
+    for _ in range(3):
+        try:
+            tick()
+            separation()
+            move()
+            vis_food = get_visible_food()
+            food_collision(vis_food)
+            heros_collision()
+            break
+        except Exception as e:
+            print(e)
 
     return json.dumps({'heros': heros,
                        'food': vis_food,
@@ -110,28 +117,25 @@ def move():
 
 
 def self_collisions():
-    try:
-        flag = True
-        while flag:
-            flag = False
-            for c1 in heros[session['player_id']]['chunks'].values():
-                for c2 in heros[session['player_id']]['chunks'].values():
-                    if 'time' in c1 and time.time() - c1['time'] > 20:
-                        c1.pop('time')
-                    if c1.get('energy', 0) > c1['score'] / 5 or c2.get('energy', 0) > c2['score'] / 5:
-                        continue
-                    if c1 != c2 and ('time' in c1 or 'time' in c2):
-                        if ((c1['x'] - c2['x']) ** 2 + (c1['y'] - c2['y']) ** 2) ** 0.5 <= c1['score'] + c2['score']:
-                            flag = True
-                            lng = ((c1['x'] - c2['x']) ** 2 + (c1['y'] - c2['y']) ** 2) ** 0.5
-                            ang = math.degrees(math.acos((c1['x'] - c2['x']) / (lng if lng > 0 else 1)))
-                            ang = ang if c1['y'] < c2['y'] else -ang + 360
-                            c2['x'] += math.cos(math.radians(ang)) * (c1['score'] / c2['score'])
-                            c2['y'] += math.sin(math.radians(ang)) * (c1['score'] / c2['score'])
-                            c1['x'] += math.cos(math.radians(-ang)) * (c2['score'] / c1['score'])
-                            c1['y'] += math.sin(math.radians(-ang)) * (c2['score'] / c1['score'])
-    except:
-        return 0
+    flag = True
+    while flag:
+        flag = False
+        for c1 in heros[session['player_id']]['chunks'].values():
+            for c2 in heros[session['player_id']]['chunks'].values():
+                if 'time' in c1 and time.time() - c1['time'] > 30:
+                    c1.pop('time')
+                if c1.get('energy', 0) > c1['score'] / 5 or c2.get('energy', 0) > c2['score'] / 5:
+                    continue
+                if c1 != c2 and ('time' in c1 or 'time' in c2):
+                    if ((c1['x'] - c2['x']) ** 2 + (c1['y'] - c2['y']) ** 2) ** 0.5 <= c1['score'] + c2['score']:
+                        flag = True
+                        lng = ((c1['x'] - c2['x']) ** 2 + (c1['y'] - c2['y']) ** 2) ** 0.5
+                        ang = math.degrees(math.acos((c1['x'] - c2['x']) / (lng if lng > 0 else 1)))
+                        ang = ang if c1['y'] < c2['y'] else -ang + 360
+                        c2['x'] += math.cos(math.radians(ang)) * (c1['score'] / c2['score'])
+                        c2['y'] += math.sin(math.radians(ang)) * (c1['score'] / c2['score'])
+                        c1['x'] += math.cos(math.radians(-ang)) * (c2['score'] / c1['score'])
+                        c1['y'] += math.sin(math.radians(-ang)) * (c2['score'] / c1['score'])
 
 
 def get_visible_food():
@@ -147,18 +151,15 @@ def get_visible_food():
 
 
 def food_collision(vis_food):
-    try:
-        food_to_del = set()
-        for f_key, f in vis_food.items():
-            for chunk in heros[session['player_id']]['chunks'].values():
-                if (chunk['x'] - f['x']) ** 2 + (chunk['y'] - f['y']) ** 2 < chunk['score'] ** 2:
-                    food_to_del.add(f_key)
-                    chunk['score'] = (chunk['score']**2 + 10)**0.5
+    food_to_del = set()
+    for f_key, f in vis_food.items():
+        for chunk in heros[session['player_id']]['chunks'].values():
+            if (chunk['x'] - f['x']) ** 2 + (chunk['y'] - f['y']) ** 2 < chunk['score'] ** 2:
+                food_to_del.add(f_key)
+                chunk['score'] = (chunk['score']**2 + 10)**0.5
 
-        for key in food_to_del:
-            food.pop(key)
-    except:
-        return 0
+    for key in food_to_del:
+        food.pop(key)
 
 
 def heros_collision():
@@ -196,5 +197,6 @@ def updater():
 
 
 if __name__ == "__main__":
+    logging.disable(logging.INFO)
     threading.Thread(target=updater, daemon=True).start()
     app.run(host='0.0.0.0', port=5004)
