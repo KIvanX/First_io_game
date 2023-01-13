@@ -180,4 +180,4 @@ def updater():
 
 if __name__ == "__main__":
     threading.Thread(target=updater, daemon=True).start()
-    app.run(host='0.0.0.0', debug=True)
+    app.run(host='0.0.0.0', pord=5004)
