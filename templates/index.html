@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>test.io</title>
+    <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
+    <style>
+        html, body { overflow: hidden; }
+        #body {
+            background: #fff8ec;
+        }
+        #space {
+            position: absolute;
+            left: -10px;
+            top: -10px;
+            width: 3010px;
+            height: 2010px;
+            border: 3px solid #ffe5cc;
+        }
+        #camera {
+            position: absolute;
+            transition: 100ms linear;
+        }
+        .chunk {
+            position: absolute;
+            color: rgba(0, 0, 0, 0.65);
+            font-family: Impact, serif;
+            align-items: center;
+            display: flex;
+            justify-content: center;
+            text-align: center;
+            transition: 100ms linear;
+            border: 1px solid rgba(0, 0, 0, 0.44);
+        }
+        .food {
+            position: absolute;
+            border-radius: 5px;
+            width: 10px;
+            height: 10px;
+        }
+    </style>
+</head>
+
+<body id='body'>
+    <div id="camera">
+        <div id="space"></div>
+        <div id="food_layout"></div>
+        <div id='hero_layout'></div>
+    </div>
+</body>
+
+<script>
+    let mouse_x = 0, mouse_y = 0, self_id, update_interval, name, is_jump;
+    let hero_layout = document.getElementById('hero_layout');
+    let food_layout = document.getElementById('food_layout');
+    let camera = document.getElementById('camera');
+
+    init();
+
+    function init() {
+        document.addEventListener('mousemove', function (e) {
+            mouse_x = e.pageX;
+            mouse_y = e.pageY;
+        });
+
+        document.addEventListener('keydown', function(event) { if (event.key == ' ') is_jump = true });
+
+        name = prompt('Введи свой ник');
+
+        $.ajax({
+            url: '{{ url_for("init") }}', method: 'get', dataType: 'html',
+            data: {'width': window.outerWidth, 'height': window.outerHeight, 'name': name},
+            success: function (data) {
+                self_id = JSON.parse(data)['self_id'];
+                update_interval = setInterval(update, 100);
+            }
+        })
+
+    }
+
+     function update() {
+        $.ajax({
+            url: '{{ url_for("update") }}',
+            method: 'get',
+            dataType: 'html',
+            data: {'mouse_x': parseInt(camera.style.right) - window.outerWidth + mouse_x/document.body.style.zoom,
+                   'mouse_y': parseInt(camera.style.bottom) - window.outerHeight + mouse_y/document.body.style.zoom,
+                   'is_jump': is_jump},
+            success: function (data) {
+                is_jump = false;
+                let info = JSON.parse(data);
+                if (info['status'] == 'reload') {
+                    clearInterval(update_interval);
+                    location.reload();
+                }
+                update_food(info['food']);
+                update_chunks(info['heros']);
+                camera.style.bottom = info['heros'][self_id]['camera_y'] + window.outerHeight / 2 + 'px';
+                camera.style.right = info['heros'][self_id]['camera_x'] + window.outerWidth / 2 + 'px';
+                if (document.body.style.zoom != (window.innerWidth / window.outerWidth))
+                    document.body.style.zoom = (window.innerWidth / window.outerWidth);
+
+            },
+            error: function(_, __, ___) {
+                clearInterval(update_interval);
+                location.reload();
+            }
+        })
+    }
+
+    function update_food(new_food) {
+        let divs = food_layout.getElementsByTagName('div');
+
+        let food_ids = []
+        for (let i=0; i<divs.length; i++)
+            if (divs[i].id in new_food)
+                food_ids.push(divs[i].id); else divs[i].remove();
+
+        for (let key in new_food)
+            if (food_ids.indexOf(key) == -1) {
+                let e = document.createElement('div');
+                e.id = key;
+                e.className = 'food';
+                e.style.left = new_food[key]['x'] + 'px';
+                e.style.top = new_food[key]['y'] + 'px';
+                e.style.backgroundColor = new_food[key]['color'];
+                food_layout.appendChild(e);
+            }
+    }
+
+    function update_chunks(new_heros) {
+        let divs = hero_layout.getElementsByTagName('div');
+
+        // Получаем ключи нарисованных и старых чанков
+        let new_chunks_id = [];
+        let now_chunks_id = [];
+        for (let h_key in new_heros)
+            for (let key in new_heros[h_key]['chunks']) new_chunks_id.push(key);
+        for (let i = 0; i < divs.length; i++)
+            now_chunks_id.push(divs[i].id);
+
+        // Добавляем новые чанки или обновляем существующие
+        for (let h_key in new_heros)
+            for (let key in new_heros[h_key]['chunks'])
+                if (now_chunks_id.indexOf(key) == -1) {
+                    let e = document.createElement('div');
+                    hero_layout.appendChild(e);
+                    e.id = key;
+                    e.className = 'chunk';
+                    e.innerText = new_heros[h_key]['name'];
+                    e.style.backgroundColor = new_heros[h_key]['color'];
+                    edit_chunk(e, new_heros[h_key]['chunks'][key]);
+                } else edit_chunk(document.getElementById(key), new_heros[h_key]['chunks'][key])
+
+        // Удаляем исчезнувшие чанки
+        for (let i = 0; i < now_chunks_id.length; i++)
+            if (new_chunks_id.indexOf(now_chunks_id[i]) == -1)
+                document.getElementById(now_chunks_id[i]).remove();
+    }
+
+    function edit_chunk(e, info) {
+        e.style.top = info['y'] - info['score'] + 'px';
+        e.style.left = info['x'] - info['score'] + 'px';
+        e.style.width = info['score'] * 2 + 'px';
+        e.style.height = info['score'] * 2 + 'px';
+        e.style.zIndex = Math.round(info['score']);
+        e.style.fontSize = info['score'] / 2 + 'px';
+        e.style.borderRadius = info['score'] + 'px';
+
+    }
+</script>
+</html>
