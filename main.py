@@ -189,6 +189,6 @@ def updater():
 
 
 if __name__ == "__main__":
-    # logging.disable(logging.INFO)
+    logging.disable(logging.INFO)
     threading.Thread(target=updater, daemon=True).start()
     app.run(host='0.0.0.0', port=5004)
