@@ -68,7 +68,7 @@ def update():
 def tick():
     hero = heros[session['player_id']]
     for chunk in hero['chunks'].values():
-        chunk['score'] *= 0.999
+        chunk['score'] *= 0.9995
 
     full = int(sum([c['score'] for c in hero['chunks'].values()]) / 10)
     hero['full_score'] = max(hero['full_score'], full) if abs(full - hero['full_score']) < 100 else full
@@ -103,8 +103,8 @@ def move():
         elif 'energy' in chunk:
             chunk.pop('energy')
 
-        chunk['x'] -= math.cos(math.radians(ang)) * (1000 / chunk['score']**0.5) * scale
-        chunk['y'] -= math.sin(math.radians(ang)) * (1000 / chunk['score']**0.5) * scale
+        chunk['x'] -= math.cos(math.radians(ang)) * (3000 / chunk['score']**0.7) * scale
+        chunk['y'] -= math.sin(math.radians(ang)) * (3000 / chunk['score']**0.7) * scale
         chunk['x'] = 0 if chunk['x'] < 0 else WIDTH if chunk['x'] > WIDTH else chunk['x']
         chunk['y'] = 0 if chunk['y'] < 0 else HEIGHT if chunk['y'] > HEIGHT else chunk['y']
         cr_x, cr_y = cr_x + chunk['x'], cr_y + chunk['y']
@@ -156,7 +156,7 @@ def food_collision(vis_food):
         for chunk in heros[session['player_id']]['chunks'].values():
             if (chunk['x'] - f['x']) ** 2 + (chunk['y'] - f['y']) ** 2 < chunk['score']:
                 food_to_del.add(f_key)
-                chunk['score'] += 15
+                chunk['score'] += 20
 
     for key in food_to_del:
         food.pop(key)
