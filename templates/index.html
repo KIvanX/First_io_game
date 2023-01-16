@@ -7,7 +7,7 @@
     <style>
         html, body { overflow: hidden; }
         #body {
-            background: #fff8ec;
+            background: #000727;
         }
         #space {
             position: absolute;
@@ -15,13 +15,24 @@
             top: -10px;
             width: 3510px;
             height: 2010px;
-            border: 3px solid #ffe5cc;
+            border: 3px solid #ababab;
         }
         #camera {
             position: absolute;
             transition: 100ms linear;
         }
+        #rating {
+            position: fixed;
+            border-radius: 3px;
+            font-family: "Book Antiqua", serif;
+            left: 10px;
+            top: 10px;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(0, 0, 0, 0.25);
+        }
         .chunk {
+            background-size: cover;
             position: absolute;
             color: rgba(0, 0, 0, 0.65);
             font-family: Impact, serif;
@@ -46,6 +57,7 @@
         <div id="space"></div>
         <div id="food_layout"></div>
         <div id='hero_layout'></div>
+        <div id='rating'></div>
     </div>
 </body>
 
@@ -54,6 +66,7 @@
     let hero_layout = document.getElementById('hero_layout');
     let food_layout = document.getElementById('food_layout');
     let camera = document.getElementById('camera');
+    let rating = document.getElementById('rating');
 
     init();
 
@@ -73,7 +86,9 @@
                 let saved_name = JSON.parse(data)['saved_name'];
                 if (saved_name == '') {
                     name = prompt('KIVAN_server приветствует на сайте test.io!\nВведите свой ник:');
-                    $.ajax({url: '{{ url_for("set_name") }}', dataType: 'html', data: {'name': name}});
+                    if (name.length > 15) name = name.slice(0, 15);
+                    $.ajax({url: '{{ url_for("set_name") }}', dataType: 'html',
+                        data: {'name': name}})
                 }
                 update_interval = setInterval(update, 100);
             }
@@ -81,7 +96,7 @@
 
     }
 
-     function update() {
+    function update() {
         $.ajax({
             url: '{{ url_for("update") }}',
             method: 'get',
@@ -91,22 +106,16 @@
                    'is_jump': is_jump},
             success: function (data) {
                 let info = JSON.parse(data);
-                if (info['status'] == 'reload') {
-                    clearInterval(update_interval);
-                    location.reload();
-                }
-                win_k = info['window_k'];
+                if (info['status'] == 'reload') reload();
+                win_k = info['heros'][self_id]['camera_k'];
                 update_food(info['food']);
                 update_chunks(info['heros']);
+                update_rating(info['heros']);
                 camera.style.bottom = info['heros'][self_id]['camera_y'] + window.outerHeight / 2 / win_k + 'px';
                 camera.style.right = info['heros'][self_id]['camera_x'] + window.outerWidth / 2 / win_k + 'px';
-                document.body.style.zoom = (window.innerWidth / window.outerWidth) * win_k;
-
+                document.body.style.zoom = (window.innerWidth / window.outerWidth * win_k);
             },
-            error: function(_, __, ___) {
-                clearInterval(update_interval);
-                location.reload();
-            }
+            error: function(_, __, ___) { reload(); }
         });
         is_jump = false;
     }
@@ -151,9 +160,10 @@
                     e.id = key;
                     e.className = 'chunk';
                     e.innerText = new_heros[h_key]['name'];
-                    e.style.backgroundColor = new_heros[h_key]['color'];
+                    e.style.backgroundImage = "url('/static/" +  new_heros[h_key]['image'] + ".jpg')";
                     edit_chunk(e, new_heros[h_key]['chunks'][key]);
-                } else edit_chunk(document.getElementById(key), new_heros[h_key]['chunks'][key])
+                } else
+                    edit_chunk(document.getElementById(key), new_heros[h_key]['chunks'][key]);
 
         // Удаляем исчезнувшие чанки
         for (let i = 0; i < now_chunks_id.length; i++)
@@ -162,14 +172,48 @@
     }
 
     function edit_chunk(e, info) {
-        e.style.top = info['y'] - info['score'] + 'px';
-        e.style.left = info['x'] - info['score'] + 'px';
-        e.style.width = info['score'] * 2 + 'px';
-        e.style.height = info['score'] * 2 + 'px';
-        e.style.zIndex = Math.round(info['score']);
-        e.style.fontSize = info['score'] / 2 + 'px';
-        e.style.borderRadius = info['score'] + 'px';
-
+        let r = Math.sqrt(info['score']);
+        e.style.top = info['y'] - r + 'px';
+        e.style.left = info['x'] - r + 'px';
+        e.style.borderRadius = r + 'px';
+        e.style.width = r * 2 + 'px';
+        e.style.height = r * 2 + 'px';
+        e.style.zIndex = Math.round(r);
+        e.style.fontSize = r / 2 + 'px';
     }
+
+    function update_rating(heros) {
+        let top = [], self_i=-1;
+        for (let key in heros) {
+            let info = [heros[key]['name'], heros[key]['full_score'], key];
+            if (info[0] == '') info[0] = 'Аноним';
+            top.push(info);
+        }
+
+        top.sort(function(a, b) { return b[1] - a[1]; });
+        for (let i in top) if (top[i][2] == self_id) self_i = i;
+        console.log(self_i)
+
+        let text = '';
+        for (let i=0; i<Math.min(2, top.length); i++) {
+            if (top[i][2] != self_id)
+                for (let t=0; t<10; t++)
+                text += "<div>" + (i+1) + ') ' + top[i][0] + ' ' + top[i][1] + '\n</div>';
+            else text += "<div style='color: red'>" + (i+1) + ') ' + top[i][0] + ' ' + top[i][1] + '\n</div>';
+        }
+        if (self_i > 1)
+            text += "<div style='color: red'>" + (Number(self_i) + 1) + ') ' + top[self_i][0] + ' ' + top[self_i][1] + '\n</div>';
+
+        rating.style.width = 175 / win_k + 'px';
+        rating.style.height = 250 / win_k + 'px';
+        rating.style.fontSize = 15 / win_k + 'px';
+        rating.innerHTML = text;
+    }
+
+    function reload() {
+        clearInterval(update_interval);
+        location.reload();
+    }
+
 </script>
 </html>

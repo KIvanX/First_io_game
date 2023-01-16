@@ -23,21 +23,23 @@ def index():
 
 @app.route("/set_name")
 def set_name():
+    session['player_name'] = request.args.get('name')
     if session.get('player_id', 0) in heros:
-        session['player_name'] = request.args.get('name')
         heros[session['player_id']]['name'] = session['player_name']
+    return {'status': 'OK'}
 
 
 @app.route("/init")
 def init():
     session['player_id'] = round(random.random(), 10)
     chunk_id, x, y = round(random.random(), 10), random.randint(0, WIDTH), random.randint(0, HEIGHT)
-    heros[session['player_id']] = {'chunks': {chunk_id: {'x': x, 'y': y, 'score': 25}},
+    heros[session['player_id']] = {'chunks': {chunk_id: {'x': x, 'y': y, 'score': 500}},
+                                   'full_score': 50,
                                    'camera_x': x,
                                    'camera_y': y,
                                    'camera_width': int(request.args.get('width')),
                                    'camera_height': int(request.args.get('height')),
-                                   'color': random.choice(colors),
+                                   'image': random.randint(1, 5),
                                    'last_update': time.time(),
                                    'name': session.get('player_name', '')}
     return {'self_id': session['player_id'], 'saved_name': session.get('player_name', '')}
@@ -61,29 +63,28 @@ def update():
         except Exception as e:
             print(e)
 
-    return json.dumps({'heros': heros,
-                       'food': vis_food,
-                       'window_k': heros[session['player_id']]['camera_k'],
-                       'status': 'OK'})
+    return json.dumps({'heros': heros, 'food': vis_food, 'status': 'OK'})
 
 
 def tick():
-    heros[session['player_id']]['last_update'] = time.time()
-    for chunk in heros[session['player_id']]['chunks'].values():
-        chunk['score'] -= 0.01
+    hero = heros[session['player_id']]
+    hero['last_update'] = time.time()
+    for chunk in hero['chunks'].values():
+        chunk['score'] *= 0.999
 
-    k = 1 - sum([c['score']**2 for c in heros[session['player_id']]['chunks'].values()])**0.5 / 6000
-    heros[session['player_id']]['camera_k'] = k
+    full = int(sum([c['score'] for c in hero['chunks'].values()]) / 10)
+    hero['full_score'] = max(hero['full_score'], full) if abs(full - hero['full_score']) < 100 else full
+    hero['camera_k'] = max(1.2 - hero['full_score']**0.4 / 100, 0.4)
 
 
 def separation():
     clones = {}
     if request.args.get('is_jump') == 'true':
         for chunk in heros[session['player_id']]['chunks'].values():
-            if chunk['score'] > 50 and len(heros[session['player_id']]['chunks']) + len(clones) < 10:
-                chunk['score'] = chunk['score'] / 2**0.5
+            if chunk['score'] > 1000 and len(heros[session['player_id']]['chunks']) + len(clones) < 10:
+                chunk['score'] = chunk['score'] / 2
                 clones[round(random.random(), 10)] = {'x': chunk['x'], 'y': chunk['y'], 'score': chunk['score'],
-                                                      'energy': chunk['score'] // 2, 'time': time.time()}
+                                                      'energy': chunk['score'] ** 0.5, 'time': time.time()}
 
     heros[session['player_id']]['chunks'] |= clones
 
@@ -98,14 +99,14 @@ def move():
         ang = math.degrees(math.acos((chunk['x'] - mouse_x) / lng))
         ang = ang if mouse_y < chunk['y'] else -ang + 360
         scale = 1 if lng > 100 else lng / 100
-        if chunk.get('energy', 0) > 0:
+        if chunk.get('energy', 0) > 5:
             scale *= chunk['energy'] / 5
             chunk['energy'] = int(chunk['energy'] * 4 / 5)
         elif 'energy' in chunk:
             chunk.pop('energy')
 
-        chunk['x'] -= math.cos(math.radians(ang)) * (800 / chunk['score']**0.8) * scale
-        chunk['y'] -= math.sin(math.radians(ang)) * (800 / chunk['score']**0.8) * scale
+        chunk['x'] -= math.cos(math.radians(ang)) * (1000 / chunk['score']**0.5) * scale
+        chunk['y'] -= math.sin(math.radians(ang)) * (1000 / chunk['score']**0.5) * scale
         chunk['x'] = 0 if chunk['x'] < 0 else WIDTH if chunk['x'] > WIDTH else chunk['x']
         chunk['y'] = 0 if chunk['y'] < 0 else HEIGHT if chunk['y'] > HEIGHT else chunk['y']
         cr_x, cr_y = cr_x + chunk['x'], cr_y + chunk['y']
@@ -128,7 +129,7 @@ def self_collisions():
                 if c1.get('energy', 0) > c1['score'] / 5 or c2.get('energy', 0) > c2['score'] / 5:
                     continue
                 if c1 != c2 and ('time' in c1 or 'time' in c2):
-                    if ((c1['x'] - c2['x']) ** 2 + (c1['y'] - c2['y']) ** 2) ** 0.5 <= c1['score'] + c2['score']:
+                    if ((c1['x'] - c2['x'])**2 + (c1['y'] - c2['y'])**2)**0.5 <= c1['score']**0.5 + c2['score']**0.5:
                         flag = True
                         lng = ((c1['x'] - c2['x']) ** 2 + (c1['y'] - c2['y']) ** 2) ** 0.5
                         ang = math.degrees(math.acos((c1['x'] - c2['x']) / (lng if lng > 0 else 1)))
@@ -155,9 +156,9 @@ def food_collision(vis_food):
     food_to_del = set()
     for f_key, f in vis_food.items():
         for chunk in heros[session['player_id']]['chunks'].values():
-            if (chunk['x'] - f['x']) ** 2 + (chunk['y'] - f['y']) ** 2 < chunk['score'] ** 2:
+            if (chunk['x'] - f['x']) ** 2 + (chunk['y'] - f['y']) ** 2 < chunk['score']:
                 food_to_del.add(f_key)
-                chunk['score'] = (chunk['score']**2 + 10)**0.5
+                chunk['score'] += 10
 
     for key in food_to_del:
         food.pop(key)
@@ -168,11 +169,11 @@ def heros_collision():
     for k1, c1 in heros[session['player_id']]['chunks'].items():
         for key, hero in heros.items():
             for k2, c2 in hero['chunks'].items():
-                ready = 'time' not in c1 and 'time' not in c2
-                if (key != session['player_id'] or ready) and c1['score'] > c2['score']:
-                    if (c1['x'] - c2['x']) ** 2 + (c1['y'] - c2['y']) ** 2 < (c1['score'] + c2['score'] / 8) ** 2:
+                merge = key == session['player_id'] and 'time' not in c1 and 'time' not in c2 and c1['score'] > c2['score']
+                if (key != session['player_id'] and c1['score'] > c2['score'] * 1.1) or merge:
+                    if (c1['x'] - c2['x'])**2 + (c1['y'] - c2['y'])**2 < (c1['score']**0.5 - c2['score']**0.5 / 2)**2:
                         chunks_to_del.add((key, k2))
-                        c1['score'] = (c1['score']**2 + c2['score']**2)**0.5
+                        c1['score'] += c2['score']
 
     for key, k in chunks_to_del:
         heros[key]['chunks'].pop(k)
@@ -188,7 +189,7 @@ def updater():
 
         to_del = []
         for key in heros:
-            if time.time() - heros[key]['last_update'] > 1:
+            if time.time() - heros[key]['last_update'] > 3:
                 to_del.append(key)
 
         for key in to_del:
