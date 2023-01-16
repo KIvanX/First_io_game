@@ -196,12 +196,12 @@
         console.log(self_i)
 
         let text = '';
-        for (let i=0; i<Math.min(2, top.length); i++) {
+        for (let i=0; i<Math.min(10, top.length); i++) {
             if (top[i][2] != self_id)
                 text += "<div>" + (i+1) + ') ' + top[i][0] + ' ' + top[i][1] + '\n</div>';
             else text += "<div style='color: red'>" + (i+1) + ') ' + top[i][0] + ' ' + top[i][1] + '\n</div>';
         }
-        if (self_i > 1)
+        if (self_i > 9)
             text += "<div style='color: red'>" + (Number(self_i) + 1) + ') ' + top[self_i][0] + ' ' + top[self_i][1] + '\n</div>';
 
         rating.style.width = 175 / win_k + 'px';
