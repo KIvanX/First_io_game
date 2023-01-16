@@ -40,7 +40,6 @@ def init():
                                    'camera_width': int(request.args.get('width')),
                                    'camera_height': int(request.args.get('height')),
                                    'image': random.randint(1, 5),
-                                   'last_update': time.time(),
                                    'name': session.get('player_name', '')}
     return {'self_id': session['player_id'], 'saved_name': session.get('player_name', '')}
 
@@ -68,7 +67,6 @@ def update():
 
 def tick():
     hero = heros[session['player_id']]
-    hero['last_update'] = time.time()
     for chunk in hero['chunks'].values():
         chunk['score'] *= 0.999
 
@@ -158,7 +156,7 @@ def food_collision(vis_food):
         for chunk in heros[session['player_id']]['chunks'].values():
             if (chunk['x'] - f['x']) ** 2 + (chunk['y'] - f['y']) ** 2 < chunk['score']:
                 food_to_del.add(f_key)
-                chunk['score'] += 10
+                chunk['score'] += 15
 
     for key in food_to_del:
         food.pop(key)
@@ -186,14 +184,6 @@ def updater():
                 food[round(random.random(), 10)] = ({'x': random.randint(0, WIDTH),
                                                      'y': random.randint(0, HEIGHT),
                                                      'color': random.choice(colors)})
-
-        to_del = []
-        for key in heros:
-            if time.time() - heros[key]['last_update'] > 3:
-                to_del.append(key)
-
-        for key in to_del:
-            heros.pop(key)
 
         time.sleep(0.1)
 

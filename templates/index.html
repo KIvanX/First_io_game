@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <title>test.io</title>
+    <title>Ager.io</title>
     <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
     <style>
         html, body { overflow: hidden; }
@@ -86,7 +86,7 @@
                 self_id = JSON.parse(data)['self_id'];
                 let saved_name = JSON.parse(data)['saved_name'];
                 if (saved_name == '') {
-                    name = prompt('KIVAN_server приветствует на сайте test.io!\nВведите свой ник:');
+                    name = prompt('Введите свой ник:');
                     if (name.length > 15) name = name.slice(0, 15);
                     $.ajax({url: '{{ url_for("set_name") }}', dataType: 'html',
                         data: {'name': name}})
