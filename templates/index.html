@@ -22,6 +22,7 @@
             transition: 100ms linear;
         }
         #rating {
+            color: white;
             position: fixed;
             border-radius: 3px;
             font-family: "Book Antiqua", serif;
@@ -34,7 +35,7 @@
         .chunk {
             background-size: cover;
             position: absolute;
-            color: rgba(0, 0, 0, 0.65);
+            color: white;
             font-family: Impact, serif;
             align-items: center;
             display: flex;
@@ -197,7 +198,6 @@
         let text = '';
         for (let i=0; i<Math.min(2, top.length); i++) {
             if (top[i][2] != self_id)
-                for (let t=0; t<10; t++)
                 text += "<div>" + (i+1) + ') ' + top[i][0] + ' ' + top[i][1] + '\n</div>';
             else text += "<div style='color: red'>" + (i+1) + ') ' + top[i][0] + ' ' + top[i][1] + '\n</div>';
         }
