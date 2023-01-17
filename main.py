@@ -40,6 +40,7 @@ def init():
                                    'camera_width': int(request.args.get('width')),
                                    'camera_height': int(request.args.get('height')),
                                    'image': random.randint(1, 5),
+                                   'last_update': time.time(),
                                    'name': session.get('player_name', '')}
     return {'self_id': session['player_id'], 'saved_name': session.get('player_name', '')}
 
@@ -67,6 +68,7 @@ def update():
 
 def tick():
     hero = heros[session['player_id']]
+    hero['last_update'] = time.time()
     for chunk in hero['chunks'].values():
         chunk['score'] *= 0.9995
 
@@ -179,24 +181,27 @@ def heros_collision():
 
 def updater():
     while True:
-        if len(food) < 1000:
-            for _ in range(30):
-                food[round(random.random(), 10)] = ({'x': random.randint(0, WIDTH),
-                                                     'y': random.randint(0, HEIGHT),
-                                                     'color': random.choice(colors)})
+        try:
+            if len(food) < 1000:
+                for _ in range(30):
+                    food[round(random.random(), 10)] = ({'x': random.randint(0, WIDTH),
+                                                         'y': random.randint(0, HEIGHT),
+                                                         'color': random.choice(colors)})
 
-        to_del = []
-        for key in heros:
-            if time.time() - heros[key]['last_update'] > 3:
-                to_del.append(key)
+            to_del = []
+            for key in heros:
+                if time.time() - heros[key]['last_update'] > 3:
+                    to_del.append(key)
 
-        for key in to_del:
-            heros.pop(key)
+            for key in to_del:
+                heros.pop(key)
 
-        time.sleep(0.1)
+            time.sleep(0.1)
+        except Exception as e:
+            print(e)
 
 
 if __name__ == "__main__":
-    logging.disable(logging.INFO)
+    # logging.disable(logging.INFO)
     threading.Thread(target=updater, daemon=True).start()
     app.run(host='0.0.0.0', port=5004)
