@@ -105,8 +105,8 @@ def move():
         elif 'energy' in chunk:
             chunk.pop('energy')
 
-        chunk['x'] -= math.cos(math.radians(ang)) * (3000 / chunk['score']**0.7) * scale
-        chunk['y'] -= math.sin(math.radians(ang)) * (3000 / chunk['score']**0.7) * scale
+        chunk['x'] -= math.cos(math.radians(ang)) * (2000 / chunk['score']**0.6) * scale
+        chunk['y'] -= math.sin(math.radians(ang)) * (2000 / chunk['score']**0.6) * scale
         chunk['x'] = 0 if chunk['x'] < 0 else WIDTH if chunk['x'] > WIDTH else chunk['x']
         chunk['y'] = 0 if chunk['y'] < 0 else HEIGHT if chunk['y'] > HEIGHT else chunk['y']
         cr_x, cr_y = cr_x + chunk['x'], cr_y + chunk['y']
@@ -156,7 +156,7 @@ def food_collision(vis_food):
     food_to_del = set()
     for f_key, f in vis_food.items():
         for chunk in heros[session['player_id']]['chunks'].values():
-            if (chunk['x'] - f['x']) ** 2 + (chunk['y'] - f['y']) ** 2 < chunk['score']:
+            if (chunk['x'] - f['x']) ** 2 + (chunk['y'] - f['y']) ** 2 < chunk['score'] - 5:
                 food_to_del.add(f_key)
                 chunk['score'] += 20
 
