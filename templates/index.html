@@ -89,8 +89,7 @@
                 if (saved_name == '') {
                     name = prompt('Введите свой ник:');
                     if (name.length > 15) name = name.slice(0, 15);
-                    $.ajax({url: '{{ url_for("set_name") }}', dataType: 'html',
-                        data: {'name': name}})
+                    $.ajax({url: '{{ url_for("set_name") }}', dataType: 'html', data: {'name': name}})
                 }
                 update_interval = setInterval(update, 100);
             }
@@ -108,7 +107,11 @@
                    'is_jump': is_jump},
             success: function (data) {
                 let info = JSON.parse(data);
-                if (info['status'] == 'reload') reload();
+                if (info['status'] == 'reload') {
+                    console.log('Запрос на перезагрузку')
+                    clearInterval(update_interval);
+                    location.reload();
+                }
                 win_k = info['heros'][self_id]['camera_k'];
                 update_food(info['food']);
                 update_chunks(info['heros']);
@@ -117,7 +120,7 @@
                 camera.style.right = info['heros'][self_id]['camera_x'] + window.outerWidth / 2 / win_k + 'px';
                 document.body.style.zoom = (window.innerWidth / window.outerWidth * win_k);
             },
-            error: function(_, __, ___) { reload(); }
+            error: function(err1, err2, err3) { console.log(err1, err2, err3); }
         });
         is_jump = false;
     }
@@ -209,11 +212,6 @@
         rating.style.height = 250 / win_k + 'px';
         rating.style.fontSize = 15 / win_k + 'px';
         rating.innerHTML = text;
-    }
-
-    function reload() {
-        clearInterval(update_interval);
-        location.reload();
     }
 
 </script>

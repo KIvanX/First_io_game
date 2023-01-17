@@ -185,6 +185,14 @@ def updater():
                                                      'y': random.randint(0, HEIGHT),
                                                      'color': random.choice(colors)})
 
+        to_del = []
+        for key in heros:
+            if time.time() - heros[key]['last_update'] > 3:
+                to_del.append(key)
+
+        for key in to_del:
+            heros.pop(key)
+
         time.sleep(0.1)
 
 
