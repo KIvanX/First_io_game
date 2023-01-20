@@ -64,7 +64,7 @@
 </body>
 
 <script>
-    let mouse_x = 0, mouse_y = 0, self_id, update_interval, name, is_jump, win_k;
+    let mouse_x = 0, mouse_y = 0, self_id, update_interval, name, is_jump, win_k, server_delta, client_delta, t2;
     let hero_layout = document.getElementById('hero_layout');
     let food_layout = document.getElementById('food_layout');
     let camera = document.getElementById('camera');
@@ -98,6 +98,7 @@
     }
 
     function update() {
+        let t0 = (new Date()).getTime();
         $.ajax({
             url: '{{ url_for("update") }}',
             method: 'get',
@@ -106,22 +107,26 @@
                    'mouse_y': Math.round(parseInt(camera.style.bottom) - window.outerHeight / win_k + mouse_y/document.body.style.zoom),
                    'is_jump': is_jump},
             success: function (data) {
+                server_delta = Math.round((new Date()).getTime() - t0);
+                let t1 = (new Date()).getTime();
                 let info = JSON.parse(data);
                 if (info['status'] == 'reload') {
-                    console.log('Запрос на перезагрузку')
+                    alert('Запрос на перезагрузку...')
                     clearInterval(update_interval);
                     location.reload();
                 }
                 win_k = info['heros'][self_id]['camera_k'];
                 update_food(info['food']);
                 update_chunks(info['heros']);
-                update_rating(info['heros']);
+                update_rating(info['heros'], info['delay']);
                 camera.style.bottom = info['heros'][self_id]['camera_y'] + window.outerHeight / 2 / win_k + 'px';
                 camera.style.right = info['heros'][self_id]['camera_x'] + window.outerWidth / 2 / win_k + 'px';
                 document.body.style.zoom = (window.innerWidth / window.outerWidth * win_k);
+                client_delta = Math.round((new Date()).getTime() - t1);
             },
             error: function(err1, err2, err3) { console.log(err1, err2, err3); }
         });
+        t2 = (new Date()).getTime();
         is_jump = false;
     }
 
@@ -131,7 +136,11 @@
         let food_ids = []
         for (let i=0; i<divs.length; i++)
             if (divs[i].id in new_food)
-                food_ids.push(divs[i].id); else divs[i].remove();
+                food_ids.push(divs[i].id); else {
+                    let del_e = divs[i];
+                    setTimeout(() => del_e.remove(), 100);
+                }
+
 
         for (let key in new_food)
             if (food_ids.indexOf(key) == -1) {
@@ -187,7 +196,7 @@
         e.style.fontSize = r / 2 + 'px';
     }
 
-    function update_rating(heros) {
+    function update_rating(heros, delay) {
         let top = [], self_i=-1;
         for (let key in heros) {
             let info = [heros[key]['name'], heros[key]['full_score'], key];
@@ -197,9 +206,11 @@
 
         top.sort(function(a, b) { return b[1] - a[1]; });
         for (let i in top) if (top[i][2] == self_id) self_i = i;
-        console.log(self_i)
 
-        let text = '';
+        let text =
+            'Ping: ' + (server_delta - delay) + ' ms<br>' +
+            'Сервер: ' + delay + ' ms<br>' +
+            'Клиент: ' + client_delta + ' ms</p><br>';
         for (let i=0; i<Math.min(10, top.length); i++) {
             if (top[i][2] != self_id)
                 text += "<div>" + (i+1) + ') ' + top[i][0] + ' ' + top[i][1] + '\n</div>';

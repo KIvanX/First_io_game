@@ -12,6 +12,7 @@ heros = {}
 food = {}
 colors = ['red', 'green', 'blue', 'yellow', 'violet']
 WIDTH, HEIGHT = 3500, 2000
+delay = 0
 
 
 @app.route("/", methods=['POST', 'GET'])
@@ -37,6 +38,8 @@ def init():
                                    'full_score': 50,
                                    'camera_x': x,
                                    'camera_y': y,
+                                   'camera_k': 1,
+                                   'updates': {'mouse_x': x, 'mouse_y': y, 'is_jump': False},
                                    'camera_width': int(request.args.get('width')),
                                    'camera_height': int(request.args.get('height')),
                                    'image': random.randint(1, 5),
@@ -50,24 +53,15 @@ def update():
     if 'player_id' not in session or session['player_id'] not in heros or not heros[session['player_id']]['chunks']:
         return {'status': 'reload'}
 
-    vis_food = []
-    for _ in range(3):
-        try:
-            tick()
-            separation()
-            move()
-            vis_food = get_visible_food()
-            food_collision(vis_food)
-            heros_collision()
-            break
-        except Exception as e:
-            print(e)
+    heros[session['player_id']]['updates']['mouse_x'] = request.args.get('mouse_x')
+    heros[session['player_id']]['updates']['mouse_y'] = request.args.get('mouse_y')
+    heros[session['player_id']]['updates']['is_jump'] = request.args.get('is_jump')
 
-    return json.dumps({'heros': heros, 'food': vis_food, 'status': 'OK'})
+    vis_food = get_visible_food(heros[session['player_id']])
+    return json.dumps({'heros': heros, 'food': vis_food, 'delay': round(delay*1000), 'status': 'OK'})
 
 
-def tick():
-    hero = heros[session['player_id']]
+def tick(hero):
     hero['last_update'] = time.time()
     for chunk in hero['chunks'].values():
         chunk['score'] *= 0.9995
@@ -77,24 +71,24 @@ def tick():
     hero['camera_k'] = max(1.2 - hero['full_score']**0.4 / 100, 0.4)
 
 
-def separation():
+def separation(hero):
     clones = {}
-    if request.args.get('is_jump') == 'true':
-        for chunk in heros[session['player_id']]['chunks'].values():
-            if chunk['score'] > 1000 and len(heros[session['player_id']]['chunks']) + len(clones) < 10:
+    if hero['updates']['is_jump'] == 'true':
+        for chunk in hero['chunks'].values():
+            if chunk['score'] > 1000 and len(hero['chunks']) + len(clones) < 10:
                 chunk['score'] = chunk['score'] / 2
                 clones[round(random.random(), 10)] = {'x': chunk['x'], 'y': chunk['y'], 'score': chunk['score'],
                                                       'energy': chunk['score'] ** 0.5, 'time': time.time()}
 
-    heros[session['player_id']]['chunks'] |= clones
+    hero['chunks'] |= clones
 
 
-def move():
+def move(hero):
     cr_x, cr_y = 0, 0
-    mouse_x, mouse_y = request.args['mouse_x'], request.args['mouse_y']
+    mouse_x, mouse_y = hero['updates']['mouse_x'], hero['updates']['mouse_y']
     mouse_x, mouse_y = (float(mouse_x), float(mouse_y) + 50) if mouse_x != 'NaN' else (0, 0)
 
-    for chunk in heros[session['player_id']]['chunks'].values():
+    for chunk in hero['chunks'].values():
         lng = ((mouse_x - chunk['x']) ** 2 + (mouse_y - chunk['y']) ** 2) ** 0.5
         ang = math.degrees(math.acos((chunk['x'] - mouse_x) / lng))
         ang = ang if mouse_y < chunk['y'] else -ang + 360
@@ -111,19 +105,19 @@ def move():
         chunk['y'] = 0 if chunk['y'] < 0 else HEIGHT if chunk['y'] > HEIGHT else chunk['y']
         cr_x, cr_y = cr_x + chunk['x'], cr_y + chunk['y']
 
-    self_collisions()
+    self_collisions(hero)
 
-    num_chunks = len(heros[session['player_id']]['chunks'])
-    heros[session['player_id']]['camera_x'] = cr_x / (num_chunks if num_chunks > 0 else 1)
-    heros[session['player_id']]['camera_y'] = cr_y / (num_chunks if num_chunks > 0 else 1)
+    num_chunks = len(hero['chunks'])
+    hero['camera_x'] = cr_x / (num_chunks if num_chunks > 0 else 1)
+    hero['camera_y'] = cr_y / (num_chunks if num_chunks > 0 else 1)
 
 
-def self_collisions():
+def self_collisions(hero):
     flag = True
     while flag:
         flag = False
-        for c1 in heros[session['player_id']]['chunks'].values():
-            for c2 in heros[session['player_id']]['chunks'].values():
+        for c1 in hero['chunks'].values():
+            for c2 in hero['chunks'].values():
                 if 'time' in c1 and time.time() - c1['time'] > 30:
                     c1.pop('time')
                 if c1.get('energy', 0) > c1['score'] / 5 or c2.get('energy', 0) > c2['score'] / 5:
@@ -140,10 +134,10 @@ def self_collisions():
                         c1['y'] += math.sin(math.radians(-ang)) * (c2['score'] / c1['score'])
 
 
-def get_visible_food():
-    w = heros[session['player_id']]['camera_width'] / 2 / heros[session['player_id']]['camera_k']
-    h = heros[session['player_id']]['camera_height'] / 2 / heros[session['player_id']]['camera_k']
-    center_x, center_y = heros[session['player_id']]['camera_x'], heros[session['player_id']]['camera_y']
+def get_visible_food(hero):
+    w = hero['camera_width'] / 2 / hero['camera_k']
+    h = hero['camera_height'] / 2 / hero['camera_k']
+    center_x, center_y = hero['camera_x'], hero['camera_y']
     visible_food = {}
     for f_key, f in food.items():
         if center_x - w <= f['x'] <= center_x + w and center_y - h <= f['y'] <= center_y + h:
@@ -152,10 +146,10 @@ def get_visible_food():
     return visible_food
 
 
-def food_collision(vis_food):
+def food_collision(hero, vis_food):
     food_to_del = set()
     for f_key, f in vis_food.items():
-        for chunk in heros[session['player_id']]['chunks'].values():
+        for chunk in hero['chunks'].values():
             if (chunk['x'] - f['x']) ** 2 + (chunk['y'] - f['y']) ** 2 < chunk['score'] - 5:
                 food_to_del.add(f_key)
                 chunk['score'] += 20
@@ -164,13 +158,13 @@ def food_collision(vis_food):
         food.pop(key)
 
 
-def heros_collision():
+def heros_collision(hero):
     chunks_to_del = set()
-    for k1, c1 in heros[session['player_id']]['chunks'].items():
-        for key, hero in heros.items():
-            for k2, c2 in hero['chunks'].items():
-                merge = key == session['player_id'] and 'time' not in c1 and 'time' not in c2 and c1['score'] > c2['score']
-                if (key != session['player_id'] and c1['score'] > c2['score'] * 1.1) or merge:
+    for k1, c1 in hero['chunks'].items():
+        for key, hero1 in heros.items():
+            for k2, c2 in hero1['chunks'].items():
+                merge = hero == hero1 and 'time' not in c1 and 'time' not in c2 and c1['score'] > c2['score']
+                if (hero != hero1 and c1['score'] > c2['score'] * 1.1) or merge:
                     if (c1['x'] - c2['x'])**2 + (c1['y'] - c2['y'])**2 < (c1['score']**0.5 - c2['score']**0.5 / 2)**2:
                         chunks_to_del.add((key, k2))
                         c1['score'] += c2['score']
@@ -179,11 +173,23 @@ def heros_collision():
         heros[key]['chunks'].pop(k)
 
 
+def world_step():
+    for hero in heros.values():
+        tick(hero)
+        separation(hero)
+        move(hero)
+        vis_food = get_visible_food(hero)
+        food_collision(hero, vis_food)
+        heros_collision(hero)
+
+
 def updater():
+    global delay
     while True:
         try:
-            if len(food) < 1000:
-                for _ in range(30):
+            t0 = time.time()
+            for _ in range(30):
+                if len(food) < 1000:
                     food[round(random.random(), 10)] = ({'x': random.randint(0, WIDTH),
                                                          'y': random.randint(0, HEIGHT),
                                                          'color': random.choice(colors)})
@@ -196,7 +202,9 @@ def updater():
             for key in to_del:
                 heros.pop(key)
 
-            time.sleep(0.1)
+            world_step()
+            delay = time.time() - t0
+            time.sleep(0.1 - delay)
         except Exception as e:
             print(e)
 
