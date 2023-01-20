@@ -111,7 +111,7 @@
                 let t1 = (new Date()).getTime();
                 let info = JSON.parse(data);
                 if (info['status'] == 'reload') {
-                    alert('Запрос на перезагрузку...')
+                    // alert('Запрос на перезагрузку...')
                     clearInterval(update_interval);
                     location.reload();
                 }

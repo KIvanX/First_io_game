@@ -53,6 +53,7 @@ def update():
     if 'player_id' not in session or session['player_id'] not in heros or not heros[session['player_id']]['chunks']:
         return {'status': 'reload'}
 
+    heros[session['player_id']]['last_update'] = time.time()
     heros[session['player_id']]['updates']['mouse_x'] = request.args.get('mouse_x')
     heros[session['player_id']]['updates']['mouse_y'] = request.args.get('mouse_y')
     heros[session['player_id']]['updates']['is_jump'] = request.args.get('is_jump')
@@ -62,7 +63,6 @@ def update():
 
 
 def tick(hero):
-    hero['last_update'] = time.time()
     for chunk in hero['chunks'].values():
         chunk['score'] *= 0.9995
 
