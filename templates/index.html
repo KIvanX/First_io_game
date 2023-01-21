@@ -108,9 +108,8 @@
                    'is_jump': is_jump},
             success: function (data) {
                 server_delta = Math.round((new Date()).getTime() - t0);
-                let t1 = (new Date()).getTime();
                 let info = JSON.parse(data);
-                if (info['status'] == 'reload') {
+                if ('status' in info && info['status'] == 'reload') {
                     // alert('Запрос на перезагрузку...')
                     clearInterval(update_interval);
                     location.reload();
@@ -122,7 +121,6 @@
                 camera.style.bottom = info['heros'][self_id]['camera_y'] + window.outerHeight / 2 / win_k + 'px';
                 camera.style.right = info['heros'][self_id]['camera_x'] + window.outerWidth / 2 / win_k + 'px';
                 document.body.style.zoom = (window.innerWidth / window.outerWidth * win_k);
-                client_delta = Math.round((new Date()).getTime() - t1);
             },
             error: function(err1, err2, err3) { console.log(err1, err2, err3); }
         });
@@ -207,10 +205,7 @@
         top.sort(function(a, b) { return b[1] - a[1]; });
         for (let i in top) if (top[i][2] == self_id) self_i = i;
 
-        let text =
-            'Ping: ' + (server_delta - delay) + ' ms<br>' +
-            'Сервер: ' + delay + ' ms<br>' +
-            'Клиент: ' + client_delta + ' ms</p><br>';
+        let text = 'Ping: ' + (server_delta - delay) + ' ms<br>';
         for (let i=0; i<Math.min(10, top.length); i++) {
             if (top[i][2] != self_id)
                 text += "<div>" + (i+1) + ') ' + top[i][0] + ' ' + top[i][1] + '\n</div>';

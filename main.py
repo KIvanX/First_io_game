@@ -58,8 +58,8 @@ def update():
     heros[session['player_id']]['updates']['mouse_y'] = request.args.get('mouse_y')
     heros[session['player_id']]['updates']['is_jump'] = request.args.get('is_jump')
 
-    vis_food = get_visible_food(heros[session['player_id']])
-    return json.dumps({'heros': heros, 'food': vis_food, 'delay': round(delay*1000), 'status': 'OK'})
+    vis_food, vis_hero = get_clear_objects(heros[session['player_id']])
+    return json.dumps({'heros': vis_hero, 'food': vis_food, 'delay': round(delay*1000)})
 
 
 def tick(hero):
@@ -134,16 +134,32 @@ def self_collisions(hero):
                         c1['y'] += math.sin(math.radians(-ang)) * (c2['score'] / c1['score'])
 
 
-def get_visible_food(hero):
+def get_clear_objects(hero):
     w = hero['camera_width'] / 2 / hero['camera_k']
     h = hero['camera_height'] / 2 / hero['camera_k']
     center_x, center_y = hero['camera_x'], hero['camera_y']
+
     visible_food = {}
     for f_key, f in food.items():
         if center_x - w <= f['x'] <= center_x + w and center_y - h <= f['y'] <= center_y + h:
             visible_food[f_key] = f
 
-    return visible_food
+    visible_hero = {}
+    for h1_key, h1 in heros.items():
+        new = dict(h1)
+        if h1 == hero:
+            for e in ['updates', 'camera_width', 'camera_height', 'last_update']:
+                new.pop(e)
+        else:
+            for e in ['updates', 'camera_width', 'camera_height', 'last_update', 'camera_x', 'camera_y', 'camera_k']:
+                new.pop(e)
+        new['chunks'] = {}
+        for c1_key, c1 in h1['chunks'].items():
+            if center_x - w <= c1['x'] <= center_x + w and center_y - h <= c1['y'] <= center_y + h:
+                new['chunks'][c1_key] = c1
+        visible_hero[h1_key] = new
+
+    return visible_food, visible_hero
 
 
 def food_collision(hero, vis_food):
@@ -158,10 +174,10 @@ def food_collision(hero, vis_food):
         food.pop(key)
 
 
-def heros_collision(hero):
+def heros_collision(hero, vis_heros):
     chunks_to_del = set()
     for k1, c1 in hero['chunks'].items():
-        for key, hero1 in heros.items():
+        for key, hero1 in vis_heros.items():
             for k2, c2 in hero1['chunks'].items():
                 merge = hero == hero1 and 'time' not in c1 and 'time' not in c2 and c1['score'] > c2['score']
                 if (hero != hero1 and c1['score'] > c2['score'] * 1.1) or merge:
@@ -178,15 +194,15 @@ def world_step():
         tick(hero)
         separation(hero)
         move(hero)
-        vis_food = get_visible_food(hero)
+        vis_food, vis_hero = get_clear_objects(hero)
         food_collision(hero, vis_food)
-        heros_collision(hero)
+        heros_collision(hero, vis_hero)
 
 
 def updater():
     global delay
     while True:
-        try:
+        # try:
             t0 = time.time()
             for _ in range(30):
                 if len(food) < 1000:
@@ -204,9 +220,9 @@ def updater():
 
             world_step()
             delay = time.time() - t0
-            time.sleep(0.1 - delay)
-        except Exception as e:
-            print(e)
+            time.sleep(0.1)
+        # except Exception as e:
+        #     print(e)
 
 
 if __name__ == "__main__":
