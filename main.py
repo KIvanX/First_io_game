@@ -212,7 +212,7 @@ def updater():
 
             to_del = []
             for key in heros:
-                if time.time() - heros[key]['last_update'] > 3:
+                if time.time() - heros[key]['last_update'] > 10:
                     to_del.append(key)
 
             for key in to_del:
