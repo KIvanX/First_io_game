@@ -34,12 +34,12 @@ def set_name():
 def init():
     session['player_id'] = round(random.random(), 10)
     chunk_id, x, y = round(random.random(), 10), random.randint(0, WIDTH), random.randint(0, HEIGHT)
-    heros[session['player_id']] = {'chunks': {chunk_id: {'x': x, 'y': y, 'score': 500}},
+    heros[session['player_id']] = {'chunks': {chunk_id: {'x': x, 'y': y, 'score': 2000}},
                                    'full_score': 50,
                                    'camera_x': x,
                                    'camera_y': y,
                                    'camera_k': 1,
-                                   'updates': {'mouse_x': x, 'mouse_y': y, 'is_jump': False},
+                                   'updates': {'mouse_x': x, 'mouse_y': y, 'jumps': '0'},
                                    'camera_width': int(request.args.get('width')),
                                    'camera_height': int(request.args.get('height')),
                                    'image': random.randint(1, 5),
@@ -56,7 +56,10 @@ def update():
     heros[session['player_id']]['last_update'] = time.time()
     heros[session['player_id']]['updates']['mouse_x'] = request.args.get('mouse_x')
     heros[session['player_id']]['updates']['mouse_y'] = request.args.get('mouse_y')
-    heros[session['player_id']]['updates']['is_jump'] = request.args.get('is_jump')
+    if request.args.get('jumps') != heros[session['player_id']]['updates']['jumps']:
+        print(request.args.get('jumps'), heros[session['player_id']]['updates'])
+        heros[session['player_id']]['updates']['jumps'] = request.args.get('jumps')
+        heros[session['player_id']]['updates']['is_jump'] = True
 
     vis_food, vis_hero = get_clear_objects(heros[session['player_id']])
     return json.dumps({'heros': vis_hero, 'food': vis_food, 'delay': round(delay*1000)})
@@ -73,7 +76,8 @@ def tick(hero):
 
 def separation(hero):
     clones = {}
-    if hero['updates']['is_jump'] == 'true':
+    if hero['updates'].get('is_jump', 0):
+        hero['updates'].pop('is_jump')
         for chunk in hero['chunks'].values():
             if chunk['score'] > 1000 and len(hero['chunks']) + len(clones) < 10:
                 chunk['score'] = chunk['score'] / 2

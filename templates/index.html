@@ -64,7 +64,7 @@
 </body>
 
 <script>
-    let mouse_x = 0, mouse_y = 0, self_id, update_interval, name, is_jump, win_k, server_delta, client_delta, t2;
+    let mouse_x = 0, mouse_y = 0, self_id, name, jumps=0, win_k, server_delta;
     let hero_layout = document.getElementById('hero_layout');
     let food_layout = document.getElementById('food_layout');
     let camera = document.getElementById('camera');
@@ -78,8 +78,6 @@
             mouse_y = e.pageY;
         });
 
-        document.addEventListener('keydown', function(e) { if (e.key == ' ') is_jump = true });
-
         $.ajax({
             url: '{{ url_for("init") }}', method: 'get', dataType: 'html',
             data: {'width': window.outerWidth, 'height': window.outerHeight, 'name': name},
@@ -91,13 +89,14 @@
                     if (name.length > 15) name = name.slice(0, 15);
                     $.ajax({url: '{{ url_for("set_name") }}', dataType: 'html', data: {'name': name}})
                 }
-                update_interval = setInterval(update, 100);
+                document.addEventListener('keydown', function(e) { if (e.key == ' ') jumps++; });
+                update_process();
             }
         })
 
     }
 
-    function update() {
+    function update_process() {
         let t0 = (new Date()).getTime();
         $.ajax({
             url: '{{ url_for("update") }}',
@@ -105,15 +104,11 @@
             dataType: 'html',
             data: {'mouse_x': Math.round(parseInt(camera.style.right) - window.outerWidth / win_k + mouse_x/document.body.style.zoom),
                    'mouse_y': Math.round(parseInt(camera.style.bottom) - window.outerHeight / win_k + mouse_y/document.body.style.zoom),
-                   'is_jump': is_jump},
+                   'jumps': jumps},
             success: function (data) {
                 server_delta = Math.round((new Date()).getTime() - t0);
                 let info = JSON.parse(data);
-                if ('status' in info && info['status'] == 'reload') {
-                    // alert('Запрос на перезагрузку...')
-                    clearInterval(update_interval);
-                    location.reload();
-                }
+                if ('status' in info && info['status'] == 'reload') location.reload();
                 win_k = info['heros'][self_id]['camera_k'];
                 update_food(info['food']);
                 update_chunks(info['heros']);
@@ -121,11 +116,11 @@
                 camera.style.bottom = info['heros'][self_id]['camera_y'] + window.outerHeight / 2 / win_k + 'px';
                 camera.style.right = info['heros'][self_id]['camera_x'] + window.outerWidth / 2 / win_k + 'px';
                 document.body.style.zoom = (window.innerWidth / window.outerWidth * win_k);
+                update_process();
+
             },
-            error: function(err1, err2, err3) { console.log(err1, err2, err3); }
+            error: function(err1, err2, err3) { console.log(err1, err2, err3); update_process(); }
         });
-        t2 = (new Date()).getTime();
-        is_jump = false;
     }
 
     function update_food(new_food) {
