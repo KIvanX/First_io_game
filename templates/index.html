@@ -116,7 +116,8 @@
                 camera.style.bottom = info['heros'][self_id]['camera_y'] + window.outerHeight / 2 / win_k + 'px';
                 camera.style.right = info['heros'][self_id]['camera_x'] + window.outerWidth / 2 / win_k + 'px';
                 document.body.style.zoom = (window.innerWidth / window.outerWidth * win_k);
-                update_process();
+                let server_delta_loop = Math.round((new Date()).getTime() - t0);
+                setTimeout(() => update_process(), 1000 / 60 - server_delta_loop);
 
             },
             error: function(err1, err2, err3) { console.log(err1, err2, err3); update_process(); }
@@ -131,9 +132,8 @@
             if (divs[i].id in new_food)
                 food_ids.push(divs[i].id); else {
                     let del_e = divs[i];
-                    setTimeout(() => del_e.remove(), 100);
+                    setTimeout(() => del_e.remove(), 1000 / 60);
                 }
-
 
         for (let key in new_food)
             if (food_ids.indexOf(key) == -1) {
@@ -143,6 +143,7 @@
                 e.style.left = new_food[key]['x'] + 'px';
                 e.style.top = new_food[key]['y'] + 'px';
                 e.style.backgroundColor = new_food[key]['color'];
+                {#e.style.boxShadow = `0 0 10px ${new_food[key]['color']}`#}
                 food_layout.appendChild(e);
             }
     }
