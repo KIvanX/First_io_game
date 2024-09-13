@@ -35,10 +35,11 @@ def set_name():
 def init():
     session['player_id'] = round(random.random(), 10)
     for i in range(10):
-        create_bot(i+1)
+        create_bot(i + 1)
 
     chunk_id, x, y = round(random.random(), 10), random.randint(0, WIDTH), random.randint(0, HEIGHT)
-    heros[session['player_id']] = {'chunks': {chunk_id: {'x': x, 'y': y, 'score': 2000, 'score_hold': 0}},
+    heros[session['player_id']] = {'chunks': {chunk_id: {'x': x, 'y': y, 'score': 42000, 'score_hold': 0}},
+                                   'id': session['player_id'],
                                    'full_score': 50,
                                    'camera_x': x,
                                    'camera_y': y,
@@ -65,7 +66,7 @@ def update():
         heros[session['player_id']]['updates']['is_jump'] = True
 
     vis_food, vis_hero = get_clear_objects(heros[session['player_id']])
-    return json.dumps({'heros': vis_hero, 'food': vis_food, 'delay': round(delay*1000)})
+    return json.dumps({'heros': vis_hero, 'food': vis_food, 'delay': round(delay * 1000)})
 
 
 def tick(hero):
@@ -78,7 +79,7 @@ def tick(hero):
 
     full = int(sum([c['score'] for c in hero['chunks'].values()]) / 10)
     hero['full_score'] = max(hero['full_score'], full) if abs(full - hero['full_score']) < 100 else full
-    hero['camera_k'] = max(1.2 - full**0.4 / 100, 0.4)
+    hero['camera_k'] = max(1.2 - full ** 0.4 / 100, 0.4)
 
 
 def separation(hero):
@@ -111,8 +112,8 @@ def move(hero):
         elif 'energy' in chunk:
             chunk.pop('energy')
 
-        chunk['x'] -= math.cos(math.radians(ang)) * (1000 / chunk['score']**0.6) * scale
-        chunk['y'] -= math.sin(math.radians(ang)) * (1000 / chunk['score']**0.6) * scale
+        chunk['x'] -= math.cos(math.radians(ang)) * (1000 / chunk['score'] ** 0.6) * scale
+        chunk['y'] -= math.sin(math.radians(ang)) * (1000 / chunk['score'] ** 0.6) * scale
         chunk['x'] = 1 if chunk['x'] < 0 else WIDTH - 1 if chunk['x'] > WIDTH else chunk['x']
         chunk['y'] = 1 if chunk['y'] < 0 else HEIGHT - 1 if chunk['y'] > HEIGHT else chunk['y']
         cr_x, cr_y = cr_x + chunk['x'], cr_y + chunk['y']
@@ -135,7 +136,8 @@ def self_collisions(hero):
                 if c1.get('energy', 0) > 0 or c2.get('energy', 0) > 0:
                     continue
                 if c1 != c2 and ('time' in c1 or 'time' in c2):
-                    if ((c1['x'] - c2['x'])**2 + (c1['y'] - c2['y'])**2)**0.5 <= c1['score']**0.5 + c2['score']**0.5:
+                    if (((c1['x'] - c2['x']) ** 2 + (c1['y'] - c2['y']) ** 2) ** 0.5 <=
+                            c1['score'] ** 0.5 + c2['score'] ** 0.5):
                         flag = True
                         lng = ((c1['x'] - c2['x']) ** 2 + (c1['y'] - c2['y']) ** 2) ** 0.5
                         ang = math.degrees(math.acos((c1['x'] - c2['x']) / (lng if lng > 0 else 1)))
@@ -192,9 +194,10 @@ def heros_collision(hero, vis_heros):
     for k1, c1 in hero['chunks'].items():
         for key, hero1 in vis_heros.items():
             for k2, c2 in hero1['chunks'].items():
-                merge = hero == hero1 and 'time' not in c1 and 'time' not in c2
-                if (hero != hero1 and c1['score'] > c2['score'] * 1.1) or merge:
-                    if (c1['x'] - c2['x'])**2 + (c1['y'] - c2['y'])**2 < (c1['score']**0.5 + c2['score']**0.5)**2 / 4:
+                merge = hero['id'] == hero1['id'] and c1 != c2 and 'time' not in c1 and 'time' not in c2
+                if (hero['id'] != hero1['id'] and c1['score'] > c2['score'] * 1.1) or merge:
+                    if (c1['x'] - c2['x']) ** 2 + (c1['y'] - c2['y']) ** 2 < (
+                            c1['score'] ** 0.5 - c2['score'] ** 0.5 / 2.5) ** 2:
                         chunks_to_del.add((key, k2))
                         c1['score_hold'] += c2['score']
 
@@ -205,7 +208,7 @@ def heros_collision(hero, vis_heros):
 
 
 def world_step():
-    for hero in heros.values():
+    for hero in heros.copy().values():
         tick(hero)
         separation(hero)
         move(hero)
@@ -220,30 +223,63 @@ def bot_step():
             hero['last_update'] = time.time()
             hero['updates']['mouse_x'] = hero['camera_x'] + math.cos(math.radians(hero['ang'])) * 300
             hero['updates']['mouse_y'] = hero['camera_y'] + math.sin(math.radians(hero['ang'])) * 300
-            if random.random() < 0.01:
+
+            full_score = sum([c['score'] for c in hero['chunks'].values()])
+            x, y = hero['camera_x'], hero['camera_y']
+            for hero1 in heros.copy().values():
+                if hero['id'] == hero1['id']:
+                    continue
+                for c1 in hero1['chunks'].values():
+                    lng = ((x - c1['x']) ** 2 + (y - c1['y']) ** 2) ** 0.5
+                    afr = random.randint(0, int(lng)) < random.randint(50, 150)
+                    angr = random.randint(0, int(lng)) < random.randint(0, 100)
+                    if not hero.get('angry') and lng < 500 and full_score ** 0.5 < c1['score'] ** 0.5 * 0.9 and afr:
+                        ang = math.degrees(math.acos((x - c1['x']) / (lng if lng > 0 else 1)))
+                        ang = ang if y < c1['y'] else -ang + 360
+                        hero['ang'] = ang + random.randint(-60, 60)
+                    # elif lng < 300 and full_score ** 0.5 / 2 > c1['score'] ** 0.5 and len(hero['chunks']) == 1 and angr:
+                    #     ang = math.degrees(math.acos((x - c1['x']) / (lng if lng > 0 else 1)))
+                    #     ang = ang if y < c1['y'] else -ang + 360
+                    #     hero['ang'] = -ang + 180
+                    #     hero['angry'] = True
+                    #     hero['updates']['jumps'] = str(int(hero['updates']['jumps']) + 1)
+                    #     hero['updates']['is_jump'] = True
+
+            if not hero.get('angry') and random.random() < 0.01:
                 hero['ang'] = random.randint(0, 360)
+
+            if hero['camera_x'] < 10 and random.random() < 0.1:
+                hero['ang'] = random.randint(-60, 60)
+            if hero['camera_x'] > WIDTH - 10 and random.random() < 0.1:
+                hero['ang'] = random.randint(120, 240)
+            if hero['camera_y'] < 10 and random.random() < 0.1:
+                hero['ang'] = random.randint(30, 150)
+            if hero['camera_y'] > HEIGHT - 10 and random.random() < 0.1:
+                hero['ang'] = random.randint(210, 330)
 
 
 def create_bot(k):
     chunk_id, x, y = round(random.random(), 10), random.randint(0, WIDTH), random.randint(0, HEIGHT)
-    heros[round(random.random(), 10)] = {'chunks': {chunk_id: {'x': x, 'y': y, 'score': 2000, 'score_hold': 0}},
-                                         'full_score': 50,
-                                         'camera_x': x,
-                                         'camera_y': y,
-                                         'camera_k': 1,
-                                         'updates': {'mouse_x': x, 'mouse_y': y, 'jumps': '0'},
-                                         'camera_width': 0,
-                                         'camera_height': 0,
-                                         'image': random.randint(1, 5),
-                                         'last_update': time.time(),
-                                         'name': f'bot_{k}',
-                                         'ang': random.randint(0, 360)}
+    h_id = round(random.random(), 10)
+    heros[h_id] = {'chunks': {chunk_id: {'x': x, 'y': y, 'score': 2000, 'score_hold': 0}},
+                   'id': h_id,
+                   'full_score': 50,
+                   'camera_x': x,
+                   'camera_y': y,
+                   'camera_k': 1,
+                   'updates': {'mouse_x': x, 'mouse_y': y, 'jumps': '0'},
+                   'camera_width': 1024,
+                   'camera_height': 1024,
+                   'image': random.randint(1, 5),
+                   'last_update': time.time(),
+                   'name': f'bot_{k}',
+                   'ang': random.randint(0, 360)}
 
 
 def updater():
     global delay, k_bot
     while True:
-        # try:
+        try:
             t0 = time.time()
             for _ in range(30):
                 if len(food) < 1000:
@@ -267,8 +303,8 @@ def updater():
             world_step()
             delay = time.time() - t0
             time.sleep((1000 / FPS - delay) / 1000)
-        # except Exception as e:
-        #     print(e)
+        except Exception as e:
+            print(e)
 
 
 if __name__ == "__main__":
